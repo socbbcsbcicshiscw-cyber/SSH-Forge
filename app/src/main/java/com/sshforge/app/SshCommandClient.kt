@@ -12,9 +12,9 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.SocketTimeoutException
 import java.security.MessageDigest
+import java.util.concurrent.CancellationException
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException

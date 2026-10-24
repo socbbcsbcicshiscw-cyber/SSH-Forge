@@ -2,9 +2,9 @@
 
 SSH-Forge is an early-stage Android **SSH client** for connecting to SSH servers from an Android device.
 
-> **Development status: early MVP.** The GitHub Actions workflow runs the unit-test task and assembles a debug APK. A successful CI build does not verify runtime behavior on an Android device. There is no published release.
+> **Development status: early MVP.** GitHub Actions runs unit and local-SSH integration tests, checks two clean unsigned release builds for byte identity, builds and inspects a signed debug APK, and stores the APK as a temporary artifact. A successful CI run does not verify runtime behavior on an Android device. There is no published release.
 
-## Implemented in source (CI build verified; device behavior not verified)
+## Implemented in source (CI tests/build verified; device behavior not verified)
 
 - Connection form for a server host/IP, port, username, and password.
 - Password-based SSH connection using the maintained `com.github.mwiede:jsch` library.
@@ -22,7 +22,7 @@ Interactive terminal sessions, SSH-key authentication, saved connection profiles
 - Android Gradle Plugin 9.4.0 and Gradle 9.6.0 (the included Gradle Wrapper selects Gradle 9.6.0)
 - Android Studio 2026.1.4 (Quail 4) or another version compatible with AGP 9.4
 
-The app uses `applicationId`/namespace `com.sshforge.app`, `minSdk` 26, and `targetSdk` 36. The SSH dependency is pinned to `com.github.mwiede:jsch:2.28.8`; JUnit 4.13.2 is used for local unit tests. AGP 9.4 provides built-in Kotlin support.
+The app uses `applicationId`/namespace `com.sshforge.app`, `minSdk` 26, and `targetSdk` 36. The SSH dependency is pinned to `com.github.mwiede:jsch:2.28.8`; JUnit 4.13.2 and Apache MINA SSHD 2.20.0 (test-only, embedded local server) support automated tests. AGP 9.4 provides built-in Kotlin support.
 
 ### Build and test
 
@@ -32,7 +32,7 @@ From the repository root, with JDK 17 and the Android SDK installed and configur
 ./gradlew testDebugUnitTest assembleDebug
 ```
 
-The debug APK is written by Gradle under `app/build/outputs/apk/debug/`. The Gradle Wrapper distribution checksum is pinned in `gradle/wrapper/gradle-wrapper.properties`. This local development workspace does not have Java or an Android SDK, so local Gradle execution was unavailable; the [GitHub Actions workflow](https://github.com/socbbcsbcicshiscw-cyber/SSH-Forge/actions/workflows/android-build.yml) runs the test and build tasks and uploads the debug APK as an artifact only when both succeed. CI success does not constitute an Android device test.
+The debug APK is written by Gradle under `app/build/outputs/apk/debug/`. The Gradle Wrapper distribution checksum is pinned in `gradle/wrapper/gradle-wrapper.properties`. This local development workspace does not have Java or an Android SDK, so Gradle was run in GitHub Actions. The [workflow](https://github.com/socbbcsbcicshiscw-cyber/SSH-Forge/actions/workflows/android-build.yml) runs `testDebugUnitTest`, builds the unsigned release APK twice from clean outputs and compares the files, then runs `assembleDebug`; it checks the debug APK's package ID, version, SDK levels, size, and signature before uploading it as a 14-day artifact. CI success does not constitute an Android device/emulator test or an independent F-Droid build.
 
 ## Installation
 
@@ -54,7 +54,9 @@ The SSH implementation is `com.github.mwiede:jsch:2.28.8`. Its JSch, JZlib, and 
 
 ## F-Droid readiness
 
-SSH-Forge has not been submitted to or accepted by F-Droid. F-Droid metadata and release information are intentionally not included. Before a future submission, verify the final build, dependency and license notices, host-key behavior, permissions, reproducibility, and release version against the actual source.
+SSH-Forge has not been submitted to or accepted by F-Droid, and no release APK has been published. English upstream metadata (title, descriptions, version-code changelog, and a project icon) is present under `fastlane/metadata/android/en-US/`. Store screenshots/feature graphics are not present, so the app does not currently meet F-Droid's Latest-tab graphics criteria.
+
+There is no release tag yet. F-Droid's submission guide expects a tag for each official upstream release, and the current repository was created on 2026-10-24—less than three months ago as of 2026-10-25. The main-repository inclusion policy asks for at least three months of active development unless an exception applies. A final build recipe belongs in the separate `fdroiddata` repository; it was not added here or submitted because no tagged release exists. The CI comparison is only two clean builds on the same GitHub runner; an isolated F-Droid build, toolchain/dependency review, screenshot capture, and maintainers' review remain outstanding.
 
 ## Bug reports and contributions
 

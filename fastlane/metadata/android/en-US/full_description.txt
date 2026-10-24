@@ -1,0 +1,14 @@
+SSH-Forge is an early-stage Android SSH client for connecting to SSH servers with password authentication and running one remote command at a time.
+
+Features:
+• Shows a server's SHA-256 host-key fingerprint on first contact and waits for explicit approval before sending authentication.
+• Saves an approved host key in the app's private data and rejects a changed key.
+• Displays standard output, standard error, and the remote command's exit status.
+• Limits displayed command output and provides connection and command timeouts.
+• Provides a disconnect action.
+
+For meaningful protection against a man-in-the-middle, compare the displayed fingerprint with one obtained through a separate trusted channel. Trust-on-first-use alone cannot establish that the first connection was not intercepted.
+
+Remote commands run with the privileges of the authenticated account. Review each command before running it. Disconnecting or timing out closes the SSH channel but cannot guarantee that a remote process has stopped.
+
+This early MVP does not provide an interactive shell, SSH-key authentication, SFTP, or saved connection profiles. It is free and open source under the Apache License 2.0.

@@ -46,6 +46,33 @@ jobs:
             exit "$status"
           fi
 
+      - name: Validate F-Droid upstream metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import struct
+
+          metadata = Path("fastlane/metadata/android/en-US")
+          title = (metadata / "title.txt").read_text(encoding="utf-8").strip()
+          short_description = (metadata / "short_description.txt").read_text(encoding="utf-8").strip()
+          full_description = (metadata / "full_description.txt").read_text(encoding="utf-8").strip()
+          gradle = Path("app/build.gradle.kts").read_text(encoding="utf-8")
+          version_code = re.search(r"versionCode = (\d+)", gradle).group(1)
+          changelog_path = metadata / "changelogs" / f"{version_code}.txt"
+          changelog = changelog_path.read_text(encoding="utf-8").strip()
+          icon = (metadata / "images/icon.png").read_bytes()
+          assert title and len(title) <= 50
+          assert short_description and len(short_description) < 80 and not short_description.endswith(".")
+          assert full_description and len(full_description) <= 4000
+          assert changelog and len(changelog) <= 500
+          assert icon[:8] == b"\x89PNG\r\n\x1a\n"
+          assert struct.unpack(">II", icon[16:24]) == (512, 512)
+          print(f"Validated en-US Fastlane metadata and versionCode {version_code} changelog.")
+          PY
+
       - name: Run unit tests
         shell: bash
         run: |

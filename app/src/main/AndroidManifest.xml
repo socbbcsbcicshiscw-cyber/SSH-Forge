@@ -3,6 +3,7 @@
 
     <application
         android:allowBackup="false"
+        android:icon="@drawable/ic_sshforge"
         android:label="SSH-Forge"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">

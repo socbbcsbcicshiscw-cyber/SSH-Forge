@@ -1,0 +1,1 @@
+Initial MVP: password-authenticated SSH, first-contact host-key fingerprint approval, single-command execution, bounded output, timeouts, and disconnect.
