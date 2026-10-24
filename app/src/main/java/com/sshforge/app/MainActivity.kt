@@ -181,7 +181,7 @@ class MainActivity : Activity() {
         return ScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(COLOR_BACKGROUND)
-            addView(page, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(page, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
 
