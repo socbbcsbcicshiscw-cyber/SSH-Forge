@@ -2,9 +2,9 @@
 
 SSH-Forge is an early-stage Android **SSH client** for connecting to SSH servers from an Android device.
 
-> **Development status: first implementation in progress.** A basic password-authenticated, single-command client has been added to the source tree. It has not yet been compiled or tested on an Android device in this environment, so it is not yet a verified or installable app. There is no published APK or release.
+> **Development status: early MVP.** The GitHub Actions workflow runs the unit-test task and assembles a debug APK. A successful CI build does not verify runtime behavior on an Android device. There is no published release.
 
-## Implemented in source (not yet build/runtime verified)
+## Implemented in source (CI build verified; device behavior not verified)
 
 - Connection form for a server host/IP, port, username, and password.
 - Password-based SSH connection using the maintained `com.github.mwiede:jsch` library.
@@ -32,11 +32,11 @@ From the repository root, with JDK 17 and the Android SDK installed and configur
 ./gradlew testDebugUnitTest assembleDebug
 ```
 
-The debug APK, if the build succeeds, is written by Gradle under `app/build/outputs/apk/debug/`. The Gradle Wrapper distribution checksum is pinned in `gradle/wrapper/gradle-wrapper.properties`. This repository's current development environment did not have Java or an Android SDK available, so a successful build or test run has **not** been confirmed here.
+The debug APK is written by Gradle under `app/build/outputs/apk/debug/`. The Gradle Wrapper distribution checksum is pinned in `gradle/wrapper/gradle-wrapper.properties`. This local development workspace does not have Java or an Android SDK, so local Gradle execution was unavailable; the [GitHub Actions workflow](https://github.com/socbbcsbcicshiscw-cyber/SSH-Forge/actions/workflows/android-build.yml) runs the test and build tasks and uploads the debug APK as an artifact only when both succeed. CI success does not constitute an Android device test.
 
 ## Installation
 
-There is no verified APK or published release to install. Do not install an APK from an untrusted source. Installation guidance can be added after an APK has been built and verified.
+Successful GitHub Actions runs provide a temporary debug APK artifact, not a published or device-verified release. Do not install an APK from an untrusted source.
 
 ## Security and Android permissions
 
