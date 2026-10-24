@@ -328,6 +328,16 @@ internal class SshCommandClient(
                 if (remaining > 0) stdout.write(buffer, 0, minOf(count, remaining))
                 if (count > remaining) truncated = true
             }
+            // JSch can expose remote EOF before the subsequent exit-status and channel-close
+            // messages have been processed. Wait for the close signal within the same deadline.
+            while (!channel.isClosed && !timedOut.get()) {
+                try {
+                    Thread.sleep(10)
+                } catch (exception: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw JSchException("Waiting for the remote command to finish was interrupted.", exception)
+                }
+            }
             if (timedOut.get()) {
                 throw SshCommandTimeoutException(
                     commandTimeoutMessage(),
