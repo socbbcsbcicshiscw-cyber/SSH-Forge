@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     name: Test and build debug APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - name: Check out source
@@ -34,7 +34,17 @@ jobs:
         uses: android-actions/setup-android@v4.0.4
 
       - name: Install project Android SDK components
-        run: sdkmanager "platforms;android-37" "build-tools;36.0.0"
+        shell: bash
+        run: |
+          set +e
+          sdkmanager "platforms;android-37" "build-tools;36.0.0" 2>&1 | tee "$RUNNER_TEMP/sdkmanager-install.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$( (grep -Ei 'error|failed|exception|not found|unknown' "$RUNNER_TEMP/sdkmanager-install.log" || true) | tail -n 8 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')
+            echo "::error title=Android SDK installation failed::sdkmanager exited with status ${status}. ${details}"
+            exit "$status"
+          fi
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest
