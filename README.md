@@ -18,11 +18,11 @@ Interactive terminal sessions, SSH-key authentication, saved connection profiles
 ## Development requirements
 
 - JDK 17
-- Android SDK Platform 37 and Android build tools 36.0.0
+- Android SDK Platform 36 and Android build tools 36.0.0
 - Android Gradle Plugin 9.4.0 and Gradle 9.6.0 (the included Gradle Wrapper selects Gradle 9.6.0)
 - Android Studio 2026.1.4 (Quail 4) or another version compatible with AGP 9.4
 
-The app uses `applicationId`/namespace `com.sshforge.app`, `minSdk` 26, and `targetSdk` 37. The SSH dependency is pinned to `com.github.mwiede:jsch:2.28.8`; JUnit 4.13.2 is used for local unit tests. AGP 9.4 provides built-in Kotlin support.
+The app uses `applicationId`/namespace `com.sshforge.app`, `minSdk` 26, and `targetSdk` 36. The SSH dependency is pinned to `com.github.mwiede:jsch:2.28.8`; JUnit 4.13.2 is used for local unit tests. AGP 9.4 provides built-in Kotlin support.
 
 ### Build and test
 
