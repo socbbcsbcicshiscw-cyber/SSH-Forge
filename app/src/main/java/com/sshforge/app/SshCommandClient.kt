@@ -226,7 +226,7 @@ internal class SshCommandClient(context: Context) {
             }
             return SshCommandResult(
                 stdout = stdout.toString(Charsets.UTF_8.name()),
-                stderr = stderr.toByteArray().toString(Charsets.UTF_8.name()),
+                stderr = String(stderr.toByteArray(), Charsets.UTF_8),
                 exitCode = exitCode,
                 outputTruncated = truncated || stderr.wasTruncated,
             )
@@ -234,7 +234,7 @@ internal class SshCommandClient(context: Context) {
             if (timedOut.get()) {
                 throw SshCommandTimeoutException("The command timed out after 60 seconds.", exception)
             }
-            val socketTimedOut = generateSequence(exception) { it.cause }
+            val socketTimedOut = generateSequence<Throwable>(exception) { it.cause }
                 .any { it is SocketTimeoutException }
             if (socketTimedOut) throw SshCommandTimeoutException("The command timed out after 60 seconds.", exception)
             throw exception

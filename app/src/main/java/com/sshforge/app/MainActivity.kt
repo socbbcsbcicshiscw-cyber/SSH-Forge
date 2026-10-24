@@ -427,7 +427,7 @@ class MainActivity : Activity() {
     }
 
     private fun describeError(exception: Exception): String {
-        val chain = generateSequence(exception) { it.cause }.toList()
+        val chain = generateSequence<Throwable>(exception) { it.cause }.toList()
         if (chain.any { it is SocketTimeoutException || it is SshCommandClient.SshCommandTimeoutException }) {
             return "Connection or command timed out. Check the server address and network. If a command had started, it may still be running remotely."
         }
@@ -464,11 +464,12 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(12), dp(16), dp(12))
         }
         val scroll = ScrollView(this).apply {
-            addView(content, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         AlertDialog.Builder(this)
             .setTitle("Third-party licenses")
-            .setView(scroll, dp(8), dp(4), dp(8), dp(4))
+            .setView(scroll)
             .setPositiveButton("Close", null)
             .show()
     }
