@@ -1,7 +1,6 @@
 package com.sshforge.app
 
 import android.content.Context
-import android.util.Base64
 import com.jcraft.jsch.ChannelExec
 import com.jcraft.jsch.HostKey
 import com.jcraft.jsch.HostKeyRepository
@@ -38,6 +37,38 @@ internal data class SshConnectionConfig(
     }
 }
 
+internal fun sshCommandValidationError(command: String): String? = when {
+    command.isBlank() -> "Enter a command to run on the server."
+    command.length > MAX_COMMAND_LENGTH -> "Commands are limited to $MAX_COMMAND_LENGTH characters."
+    command.any { it == '\u0000' } -> "The command contains an invalid character."
+    else -> null
+}
+
+internal fun sha256HostKeyFingerprint(key: ByteArray): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(key)
+    return "SHA256:" + java.util.Base64.getEncoder().withoutPadding().encodeToString(digest)
+}
+
+internal data class SshTimeouts(
+    val connectionTimeoutMs: Int = 15_000,
+    val hostKeyPromptTimeoutMs: Int = 120_000,
+    val commandConnectTimeoutMs: Int = 15_000,
+    val commandTimeoutMs: Long = 60_000,
+    val keepAliveIntervalMs: Int = 15_000,
+    val keepAliveFailureLimit: Int = 3,
+) {
+    init {
+        require(connectionTimeoutMs > 0)
+        require(hostKeyPromptTimeoutMs > 0)
+        require(commandConnectTimeoutMs > 0)
+        require(commandTimeoutMs in 1..Int.MAX_VALUE.toLong())
+        require(keepAliveIntervalMs > 0)
+        require(keepAliveFailureLimit > 0)
+    }
+}
+
+private const val MAX_COMMAND_LENGTH = 4096
+
 internal data class SshCommandResult(
     val stdout: String,
     val stderr: String,
@@ -51,8 +82,23 @@ internal fun interface HostKeyApproval {
 }
 
 /** A small password-authenticated SSH command client. It never stores the supplied password. */
-internal class SshCommandClient(context: Context) {
-    private val knownHostsFile = File(context.filesDir, "known_hosts")
+internal class SshCommandClient(
+    private val knownHostsFile: File,
+    private val timeouts: SshTimeouts = SshTimeouts(),
+) {
+    constructor(context: Context) : this(File(context.filesDir, "known_hosts"))
+
+    private class ConnectionAttempt {
+        val cancelled = AtomicBoolean(false)
+
+        @Volatile
+        var candidateSession: Session? = null
+    }
+
+    private val stateLock = Any()
+
+    @Volatile
+    private var activeConnectAttempt: ConnectionAttempt? = null
 
     @Volatile
     private var session: Session? = null
@@ -69,111 +115,169 @@ internal class SshCommandClient(context: Context) {
         password: ByteArray,
         approval: HostKeyApproval,
     ) {
+        var attempt: ConnectionAttempt? = null
+        var candidateSession: Session? = null
         try {
             config.validationError()?.let { throw IllegalArgumentException(it) }
-        if (password.isEmpty()) throw IllegalArgumentException("Enter the SSH password.")
-        disconnect()
+            if (password.isEmpty()) throw IllegalArgumentException("Enter the SSH password.")
 
-        if (!knownHostsFile.exists() && !knownHostsFile.createNewFile()) {
-            throw IllegalStateException("Could not create the private known-hosts file.")
-        }
-        if (!knownHostsFile.isFile || !knownHostsFile.canWrite()) {
-            throw IllegalStateException("The private known-hosts file is not writable.")
-        }
+            val newAttempt = ConnectionAttempt()
+            attempt = newAttempt
+            val oldResources = synchronized(stateLock) {
+                activeConnectAttempt?.cancelled?.set(true)
+                val previousCandidate = activeConnectAttempt?.candidateSession
+                val previousSession = session
+                val previousChannel = activeChannel
+                activeConnectAttempt = newAttempt
+                session = null
+                activeChannel = null
+                Triple(previousChannel, previousSession, previousCandidate)
+            }
+            oldResources.first?.disconnect()
+            oldResources.second?.disconnect()
+            if (oldResources.third !== oldResources.second) oldResources.third?.disconnect()
 
-        val jsch = JSch()
-        jsch.setKnownHosts(knownHostsFile.absolutePath)
-        val storedRepository = jsch.hostKeyRepository
-        val candidateSession = jsch.getSession(config.username, config.host, config.port)
-        candidateSession.setPassword(password)
-        candidateSession.setTimeout(CONNECTION_TIMEOUT_MS)
-        candidateSession.setConfig("StrictHostKeyChecking", "yes")
-        candidateSession.setConfig("PreferredAuthentications", "password")
-        candidateSession.setServerAliveInterval(KEEPALIVE_INTERVAL_MS)
-        candidateSession.setServerAliveCountMax(KEEPALIVE_FAILURE_LIMIT)
+            if (!knownHostsFile.exists() && !knownHostsFile.createNewFile()) {
+                throw IllegalStateException("Could not create the private known-hosts file.")
+            }
+            if (!knownHostsFile.isFile || !knownHostsFile.canWrite()) {
+                throw IllegalStateException("The private known-hosts file is not writable.")
+            }
 
-        candidateSession.setHostKeyRepository(object : HostKeyRepository {
-            override fun check(host: String, key: ByteArray): Int {
-                val knownResult = storedRepository.check(host, key)
-                if (knownResult != HostKeyRepository.NOT_INCLUDED) {
-                    // A changed key is always rejected. Never offer an override for it.
-                    return knownResult
-                }
+            val jsch = JSch()
+            jsch.setKnownHosts(knownHostsFile.absolutePath)
+            val storedRepository = jsch.hostKeyRepository
+            val pendingSession = jsch.getSession(config.username, config.host, config.port)
+            candidateSession = pendingSession
+            pendingSession.setConfig("StrictHostKeyChecking", "yes")
+            pendingSession.setConfig("PreferredAuthentications", "password")
+            // setServerAliveInterval also changes JSch's read timeout, so set the actual
+            // connection timeout after configuring keep-alives.
+            pendingSession.setServerAliveInterval(timeouts.keepAliveIntervalMs)
+            pendingSession.setServerAliveCountMax(timeouts.keepAliveFailureLimit)
+            pendingSession.setTimeout(timeouts.connectionTimeoutMs)
 
-                val hostKey = try {
-                    HostKey(host, key)
-                } catch (_: JSchException) {
+            pendingSession.setHostKeyRepository(object : HostKeyRepository {
+                override fun check(host: String, key: ByteArray): Int {
+                    val knownResult = storedRepository.check(host, key)
+                    if (knownResult != HostKeyRepository.NOT_INCLUDED) {
+                        // A changed key is always rejected. Never offer an override for it.
+                        return knownResult
+                    }
+
+                    val hostKey = try {
+                        HostKey(host, key)
+                    } catch (_: JSchException) {
+                        return HostKeyRepository.NOT_INCLUDED
+                    }
+                    val fingerprint = sha256HostKeyFingerprint(key)
+
+                    val approved = try {
+                        ensureAttemptActive(newAttempt)
+                        // The trust dialog is shown before SSH authentication. Extend the read timeout
+                        // only while waiting for the user's decision during key exchange.
+                        pendingSession.setTimeout(timeouts.hostKeyPromptTimeoutMs)
+                        approval.approve(config.hostWithPort(), hostKey.type, fingerprint)
+                    } catch (_: Exception) {
+                        false
+                    } finally {
+                        try {
+                            pendingSession.setTimeout(timeouts.connectionTimeoutMs)
+                        } catch (_: JSchException) {
+                            // If the socket is already unusable, the handshake will fail closed.
+                        }
+                    }
+                    if (!approved) return HostKeyRepository.NOT_INCLUDED
+                    ensureAttemptActive(newAttempt)
+
+                    synchronized(storedRepository) {
+                        storedRepository.add(hostKey, null as UserInfo?)
+                        if (isPersisted(host, hostKey)) return HostKeyRepository.OK
+                        // Do not continue on a trust decision that could not be persisted.
+                        storedRepository.remove(host, hostKey.type, key)
+                    }
                     return HostKeyRepository.NOT_INCLUDED
                 }
-                val fingerprint = sha256Fingerprint(key)
 
-                val approved = try {
-                    // The trust dialog is shown before SSH authentication. Extend the read timeout
-                    // only while waiting for the user's decision during key exchange.
-                    candidateSession.setTimeout(HOST_KEY_PROMPT_TIMEOUT_MS)
-                    approval.approve(config.hostWithPort(), hostKey.type, fingerprint)
-                } catch (_: Exception) {
+                override fun add(hostkey: HostKey, userinfo: UserInfo?) =
+                    storedRepository.add(hostkey, userinfo)
+
+                override fun remove(host: String?, type: String?) =
+                    storedRepository.remove(host, type)
+
+                override fun remove(host: String?, type: String?, key: ByteArray?) =
+                    storedRepository.remove(host, type, key)
+
+                override fun getKnownHostsRepositoryID(): String? =
+                    storedRepository.getKnownHostsRepositoryID()
+
+                override fun getHostKey(): Array<HostKey> = storedRepository.getHostKey()
+
+                override fun getHostKey(host: String?, type: String?): Array<HostKey> =
+                    storedRepository.getHostKey(host, type)
+            })
+
+            val registered = synchronized(stateLock) {
+                if (activeConnectAttempt !== newAttempt || newAttempt.cancelled.get()) {
                     false
-                } finally {
-                    try {
-                        candidateSession.setTimeout(CONNECTION_TIMEOUT_MS)
-                    } catch (_: JSchException) {
-                        // If the socket is already unusable, the handshake will fail closed.
-                    }
+                } else {
+                    newAttempt.candidateSession = pendingSession
+                    session = pendingSession
+                    true
                 }
-                if (!approved) return HostKeyRepository.NOT_INCLUDED
-
-                synchronized(storedRepository) {
-                    storedRepository.add(hostKey, null as UserInfo?)
-                    if (isPersisted(host, hostKey)) return HostKeyRepository.OK
-                    // Do not continue on a trust decision that could not be persisted.
-                    storedRepository.remove(host, hostKey.type, key)
-                }
-                return HostKeyRepository.NOT_INCLUDED
+            }
+            if (!registered) {
+                pendingSession.disconnect()
+                throw CancellationException("The SSH connection was cancelled.")
             }
 
-            override fun add(hostkey: HostKey, userinfo: UserInfo?) =
-                storedRepository.add(hostkey, userinfo)
-
-            override fun remove(host: String?, type: String?) =
-                storedRepository.remove(host, type)
-
-            override fun remove(host: String?, type: String?, key: ByteArray?) =
-                storedRepository.remove(host, type, key)
-
-            override fun getKnownHostsRepositoryID(): String? =
-                storedRepository.getKnownHostsRepositoryID()
-
-            override fun getHostKey(): Array<HostKey> = storedRepository.getHostKey()
-
-            override fun getHostKey(host: String?, type: String?): Array<HostKey> =
-                storedRepository.getHostKey(host, type)
-        })
-
-        session = candidateSession
-        try {
-            candidateSession.connect(CONNECTION_TIMEOUT_MS)
-            if (!candidateSession.isConnected) {
+            ensureAttemptActive(newAttempt)
+            // Delay the JSch-owned password copy until the handshake is about to start. JSch clears
+            // its own copy in Session.connect's finally block; this client clears the caller's copy.
+            pendingSession.setPassword(password)
+            pendingSession.connect(timeouts.connectionTimeoutMs)
+            ensureAttemptActive(newAttempt)
+            if (!pendingSession.isConnected) {
                 throw JSchException("The SSH session did not remain connected.")
             }
-            candidateSession.setTimeout(COMMAND_TIMEOUT_MS)
+            pendingSession.setTimeout(timeouts.commandTimeoutMs.toInt())
+
+            val completed = synchronized(stateLock) {
+                if (activeConnectAttempt !== newAttempt || newAttempt.cancelled.get()) {
+                    false
+                } else {
+                    activeConnectAttempt = null
+                    true
+                }
+            }
+            if (!completed) {
+                pendingSession.disconnect()
+                throw CancellationException("The SSH connection was cancelled.")
+            }
         } catch (exception: Exception) {
-            if (session === candidateSession) session = null
-            candidateSession.disconnect()
+            synchronized(stateLock) {
+                if (session === candidateSession) session = null
+                if (activeConnectAttempt === attempt) activeConnectAttempt = null
+            }
+            candidateSession?.disconnect()
             throw exception
-        }
         } finally {
+            synchronized(stateLock) {
+                if (activeConnectAttempt === attempt) activeConnectAttempt = null
+            }
             password.fill(0)
+        }
+    }
+
+    private fun ensureAttemptActive(attempt: ConnectionAttempt) {
+        if (attempt.cancelled.get() || activeConnectAttempt !== attempt) {
+            throw CancellationException("The SSH connection was cancelled.")
         }
     }
 
     @Throws(Exception::class)
     fun execute(command: String): SshCommandResult {
-        if (command.isBlank()) throw IllegalArgumentException("Enter a command to run on the server.")
-        if (command.length > MAX_COMMAND_LENGTH) {
-            throw IllegalArgumentException("Commands are limited to $MAX_COMMAND_LENGTH characters.")
-        }
-        if (command.any { it == '\u0000' }) throw IllegalArgumentException("The command contains an invalid character.")
+        sshCommandValidationError(command)?.let { throw IllegalArgumentException(it) }
 
         val currentSession = session
         if (currentSession?.isConnected != true) {
@@ -181,7 +285,18 @@ internal class SshCommandClient(context: Context) {
         }
 
         val channel = currentSession.openChannel("exec") as ChannelExec
-        activeChannel = channel
+        val channelRegistered = synchronized(stateLock) {
+            if (session !== currentSession || !currentSession.isConnected) {
+                false
+            } else {
+                activeChannel = channel
+                true
+            }
+        }
+        if (!channelRegistered) {
+            channel.disconnect()
+            throw IllegalStateException("The SSH connection was disconnected before the command started.")
+        }
         val stderr = BoundedOutputStream(MAX_OUTPUT_BYTES_PER_STREAM)
         val stdout = ByteArrayOutputStream()
         val timedOut = AtomicBoolean(false)
@@ -192,7 +307,7 @@ internal class SshCommandClient(context: Context) {
             channel.setCommand(command)
             channel.setErrStream(stderr)
             val output = channel.inputStream
-            channel.connect(COMMAND_CONNECT_TIMEOUT_MS)
+            channel.connect(timeouts.commandConnectTimeoutMs)
             val executor = Executors.newSingleThreadScheduledExecutor { task ->
                 Thread(task, "ssh-command-timeout").apply { isDaemon = true }
             }
@@ -202,7 +317,7 @@ internal class SshCommandClient(context: Context) {
                     timedOut.set(true)
                     channel.disconnect()
                 }
-            }, COMMAND_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
+            }, timeouts.commandTimeoutMs, TimeUnit.MILLISECONDS)
             val buffer = ByteArray(4096)
             while (true) {
                 val count = output.read(buffer)
@@ -214,14 +329,16 @@ internal class SshCommandClient(context: Context) {
             }
             if (timedOut.get()) {
                 throw SshCommandTimeoutException(
-                    "The command timed out after 60 seconds.",
+                    commandTimeoutMessage(),
                     TimeoutException("Remote command deadline exceeded."),
                 )
             }
 
             val exitCode = channel.exitStatus
             if (!currentSession.isConnected) {
-                session = null
+                synchronized(stateLock) {
+                    if (session === currentSession) session = null
+                }
                 throw IllegalStateException("The SSH connection was lost while running the command.")
             }
             return SshCommandResult(
@@ -232,27 +349,45 @@ internal class SshCommandClient(context: Context) {
             )
         } catch (exception: Exception) {
             if (timedOut.get()) {
-                throw SshCommandTimeoutException("The command timed out after 60 seconds.", exception)
+                throw SshCommandTimeoutException(commandTimeoutMessage(), exception)
             }
             val socketTimedOut = generateSequence<Throwable>(exception) { it.cause }
                 .any { it is SocketTimeoutException }
-            if (socketTimedOut) throw SshCommandTimeoutException("The command timed out after 60 seconds.", exception)
+            if (socketTimedOut) throw SshCommandTimeoutException(commandTimeoutMessage(), exception)
             throw exception
         } finally {
             timeoutTask?.cancel(true)
             timeoutExecutor?.shutdownNow()
-            activeChannel = null
+            synchronized(stateLock) {
+                if (activeChannel === channel) activeChannel = null
+            }
             channel.disconnect()
         }
     }
 
     fun disconnect() {
-        activeChannel?.disconnect()
-        activeChannel = null
-        val oldSession = session
-        session = null
-        oldSession?.disconnect()
+        val resources = synchronized(stateLock) {
+            val attempt = activeConnectAttempt
+            attempt?.cancelled?.set(true)
+            activeConnectAttempt = null
+            val candidate = attempt?.candidateSession
+            val oldSession = session
+            val oldChannel = activeChannel
+            session = null
+            activeChannel = null
+            Triple(oldChannel, oldSession, candidate)
+        }
+        resources.first?.disconnect()
+        resources.second?.disconnect()
+        if (resources.third !== resources.second) resources.third?.disconnect()
     }
+
+    private fun commandTimeoutMessage(): String =
+        if (timeouts.commandTimeoutMs % 1000L == 0L) {
+            "The command timed out after ${timeouts.commandTimeoutMs / 1000} seconds."
+        } else {
+            "The command timed out after ${timeouts.commandTimeoutMs} milliseconds."
+        }
 
     private fun isPersisted(host: String, key: HostKey): Boolean {
         val expected = "$host ${key.type} ${key.key}"
@@ -263,17 +398,12 @@ internal class SshCommandClient(context: Context) {
         }
     }
 
-    private fun sha256Fingerprint(key: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(key)
-        return "SHA256:" + Base64.encodeToString(digest, Base64.NO_WRAP or Base64.NO_PADDING)
-    }
-
     private fun SshConnectionConfig.hostWithPort(): String {
         val displayHost = if (host.contains(':') && !host.startsWith("[")) "[$host]" else host
         return if (port == DEFAULT_SSH_PORT) displayHost else "$displayHost:$port"
     }
 
-    private class BoundedOutputStream(private val limit: Int) : ByteArrayOutputStream() {
+    internal class BoundedOutputStream(private val limit: Int) : ByteArrayOutputStream() {
         var wasTruncated: Boolean = false
             private set
 
@@ -292,13 +422,6 @@ internal class SshCommandClient(context: Context) {
 
     companion object {
         private const val DEFAULT_SSH_PORT = 22
-        private const val CONNECTION_TIMEOUT_MS = 15_000
-        private const val HOST_KEY_PROMPT_TIMEOUT_MS = 120_000
-        private const val COMMAND_CONNECT_TIMEOUT_MS = 15_000
-        private const val COMMAND_TIMEOUT_MS = 60_000
-        private const val KEEPALIVE_INTERVAL_MS = 15_000
-        private const val KEEPALIVE_FAILURE_LIMIT = 3
-        private const val MAX_COMMAND_LENGTH = 4096
         private const val MAX_OUTPUT_BYTES_PER_STREAM = 64 * 1024
     }
 }

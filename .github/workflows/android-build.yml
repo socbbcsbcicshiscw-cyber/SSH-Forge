@@ -72,6 +72,62 @@ jobs:
             exit "$status"
           fi
 
+      - name: Repeat clean unsigned release build for reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew clean assembleRelease
+          release_apk="app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$release_apk"
+          cp "$release_apk" "$RUNNER_TEMP/ssh-forge-release-first.apk"
+          ./gradlew clean assembleRelease
+          cmp --silent "$RUNNER_TEMP/ssh-forge-release-first.apk" "$release_apk" || {
+            echo "::error title=Release build is not reproducible::The two clean unsigned release APKs differ."
+            exit 1
+          }
+          echo "Two clean unsigned release builds were byte-identical (SHA-256: $(sha256sum "$release_apk" | cut -d' ' -f1))." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify debug APK package, SDK levels, size and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print | sort)
+          if (( ${#apks[@]} != 1 )); then
+            echo "::error title=Unexpected APK count::Expected exactly one debug APK; found ${#apks[@]}."
+            exit 1
+          fi
+          apk="${apks[0]}"
+          if [[ ! -s "$apk" ]]; then
+            echo "::error title=Debug APK is empty::The APK file is missing or has zero size."
+            exit 1
+          fi
+          expected_id=$(sed -nE 's/^[[:space:]]*applicationId = "([^"]+)".*/\1/p' app/build.gradle.kts | head -n1)
+          expected_min=$(sed -nE 's/^[[:space:]]*minSdk = ([0-9]+).*/\1/p' app/build.gradle.kts | head -n1)
+          expected_target=$(sed -nE 's/^[[:space:]]*targetSdk = ([0-9]+).*/\1/p' app/build.gradle.kts | head -n1)
+          expected_code=$(sed -nE 's/^[[:space:]]*versionCode = ([0-9]+).*/\1/p' app/build.gradle.kts | head -n1)
+          expected_name=$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' app/build.gradle.kts | head -n1)
+          actual_id=$(apkanalyzer manifest application-id "$apk")
+          actual_min=$(apkanalyzer manifest min-sdk "$apk")
+          actual_target=$(apkanalyzer manifest target-sdk "$apk")
+          actual_code=$(apkanalyzer manifest version-code "$apk")
+          actual_name=$(apkanalyzer manifest version-name "$apk")
+          [[ "$actual_id" == "$expected_id" ]] || { echo "::error::APK applicationId mismatch: $actual_id"; exit 1; }
+          [[ "$actual_min" == "$expected_min" ]] || { echo "::error::APK minSdk mismatch: $actual_min"; exit 1; }
+          [[ "$actual_target" == "$expected_target" ]] || { echo "::error::APK targetSdk mismatch: $actual_target"; exit 1; }
+          [[ "$actual_code" == "$expected_code" ]] || { echo "::error::APK versionCode mismatch: $actual_code"; exit 1; }
+          [[ "$actual_name" == "$expected_name" ]] || { echo "::error::APK versionName mismatch: $actual_name"; exit 1; }
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk" 2>&1 | tee "$RUNNER_TEMP/apksigner-verify.log"
+          apk_size=$(stat -c '%s' "$apk")
+          apk_sha256=$(sha256sum "$apk" | cut -d' ' -f1)
+          printf '%s\n' \
+            "APK: $apk" \
+            "Size: $apk_size bytes" \
+            "SHA-256: $apk_sha256" \
+            "Package: $actual_id" \
+            "minSdk / targetSdk: $actual_min / $actual_target" \
+            "versionName / versionCode: $actual_name / $actual_code" \
+            "Signature: verified with apksigner" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload debug APK artifact
         if: success()
         uses: actions/upload-artifact@v7.0.2

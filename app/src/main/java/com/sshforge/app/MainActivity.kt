@@ -417,13 +417,13 @@ class MainActivity : Activity() {
         disconnectButton.isEnabled = connected || busy
         connectButton.alpha = if (connectButton.isEnabled) 1f else 0.5f
         disconnectButton.alpha = if (disconnectButton.isEnabled) 1f else 0.5f
-        runButton.alpha = if (runButton.isEnabled) 1f else 0.5f
         hostInput.isEnabled = !busy && !connected
         portInput.isEnabled = !busy && !connected
         usernameInput.isEnabled = !busy && !connected
         passwordInput.isEnabled = !busy && !connected
         commandInput.isEnabled = connected && !busy
         runButton.isEnabled = connected && !busy
+        runButton.alpha = if (runButton.isEnabled) 1f else 0.5f
     }
 
     private fun describeError(exception: Exception): String {

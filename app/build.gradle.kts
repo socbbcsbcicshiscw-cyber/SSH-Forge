@@ -29,4 +29,5 @@ dependencies {
     implementation("com.github.mwiede:jsch:2.28.8")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.apache.sshd:sshd-core:2.20.0")
 }
