@@ -47,10 +47,30 @@ jobs:
           fi
 
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
+        shell: bash
+        run: |
+          set +e
+          ./gradlew testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/testDebugUnitTest.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$( (grep -Ei '(^e:|error|failed|exception|what went wrong|unresolved reference|could not|not found|execution failed|task :.*failed)' "$RUNNER_TEMP/testDebugUnitTest.log" || true) | tail -n 12 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')
+            echo "::error title=Gradle unit tests failed::./gradlew testDebugUnitTest exited with status ${status}. ${details}"
+            exit "$status"
+          fi
 
       - name: Assemble debug APK
-        run: ./gradlew assembleDebug
+        shell: bash
+        run: |
+          set +e
+          ./gradlew assembleDebug 2>&1 | tee "$RUNNER_TEMP/assembleDebug.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$( (grep -Ei '(^e:|error|failed|exception|what went wrong|unresolved reference|could not|not found|execution failed|task :.*failed)' "$RUNNER_TEMP/assembleDebug.log" || true) | tail -n 12 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')
+            echo "::error title=Gradle APK build failed::./gradlew assembleDebug exited with status ${status}. ${details}"
+            exit "$status"
+          fi
 
       - name: Upload debug APK artifact
         if: success()
