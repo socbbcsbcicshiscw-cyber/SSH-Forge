@@ -256,7 +256,7 @@ class SshCommandClientIntegrationTest {
     @Test
     fun commandReturnsStdoutStderrAndExitStatusAndBoundsLargeOutput() {
         val server = startServer("command-output.key", AtomicInteger())
-        val client = newClient()
+        val client = newClient(SshTimeouts(commandTimeoutMs = 5_000))
         try {
             client.connect(config(server), TEST_PASSWORD.toByteArray(), HostKeyApproval { _, _, _ -> true })
             val result = client.execute("result")
@@ -385,7 +385,7 @@ class SshCommandClientIntegrationTest {
             } catch (_: Exception) {
                 exitCode = 1
             } finally {
-                runCatching { callback?.onExit(exitCode, "", true) }
+                runCatching { callback?.onExit(exitCode) }
             }
         }
     }
