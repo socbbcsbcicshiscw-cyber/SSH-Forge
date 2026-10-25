@@ -6,6 +6,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      publish_debug:
+        description: Create a clearly labeled public pre-release with the debug-signed APK
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -172,3 +178,46 @@ jobs:
           path: screenshots/concepts/*
           if-no-files-found: error
           retention-days: 14
+
+  publish-debug-release:
+    name: Publish public debug APK pre-release
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_debug
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested debug APK
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: ssh-forge-debug-apk
+          path: release-assets
+
+      - name: Publish clearly labeled debug pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find release-assets -type f -name '*.apk' -print | sort)
+          if (( ${#apks[@]} != 1 )); then
+            echo "Expected exactly one tested APK; found ${#apks[@]}." >&2
+            exit 1
+          fi
+          short_sha="${GITHUB_SHA:0:7}"
+          tag="debug-${short_sha}"
+          asset="$RUNNER_TEMP/SSH-Forge-debug-${short_sha}.apk"
+          cp "${apks[0]}" "$asset"
+          checksum=$(sha256sum "$asset" | cut -d' ' -f1)
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Unofficial debug/test build from commit ${GITHUB_SHA}.
+
+          This APK is signed with the Android debug key. It is not a production release, is not signed with a release key, and is not an official Google Play or F-Droid build. Install only if you understand these limitations.
+
+          APK SHA-256: ${checksum}
+          EOF
+          gh release create "$tag" "$asset#SSH-Forge debug APK" \
+            --target "$GITHUB_SHA" \
+            --title "SSH-Forge debug APK (${short_sha})" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --prerelease

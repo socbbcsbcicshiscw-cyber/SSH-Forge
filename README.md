@@ -2,7 +2,7 @@
 
 SSH-Forge is an early-stage Android **SSH client** for connecting to SSH servers from an Android device.
 
-> **Development status: early MVP.** GitHub Actions runs unit and local-SSH integration tests, checks two clean unsigned release builds for byte identity, builds and inspects a signed debug APK, and stores the APK as a temporary artifact. A successful CI run does not verify runtime behavior on an Android device. There is no published release.
+> **Development status: early MVP.** GitHub Actions runs unit and local-SSH integration tests, checks two clean unsigned release builds for byte identity, builds and inspects a signed debug APK, and stores it as a temporary artifact. An opt-in workflow can publish a clearly labeled debug/test pre-release; no production/store release is available. CI does not verify runtime behavior on an Android device.
 
 ## Implemented in source (CI tests/build verified; device behavior not verified)
 
@@ -37,7 +37,7 @@ The debug APK is written by Gradle under `app/build/outputs/apk/debug/`. The Gra
 
 ## Installation
 
-Successful GitHub Actions runs provide a temporary debug APK artifact, not a published or device-verified release. Do not install an APK from an untrusted source.
+The workflow can provide a temporary debug APK artifact and, when explicitly requested, a public debug/test pre-release. Neither is a production/store release or device-verified. Use the [GitHub Releases page](https://github.com/socbbcsbcicshiscw-cyber/SSH-Forge/releases) to find a debug pre-release, if one has been published. Do not install an APK from an untrusted source.
 
 ## Security and Android permissions
 

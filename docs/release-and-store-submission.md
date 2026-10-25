@@ -1,6 +1,6 @@
 # GitHub release, Google Play, and F-Droid preparation
 
-This is a future-facing checklist, not a release or a claim of store approval. At the time of writing (2026-10-25), SSH-Forge has no published release, no actual device screenshots, and no public stable privacy-policy URL. The last successful CI run predates the current uncommitted audit changes. Do not submit a build until those changes pass CI and the release owner completes the checks below.
+This is a future-facing checklist, not a claim of store approval. At the time of writing (2026-10-25), SSH-Forge has no production/store release, no actual device screenshots, and no public stable privacy-policy URL. CI can verify source tests and builds, but it does not verify runtime behavior on a device. Complete the checks below before any store submission.
 
 ## Before any distribution
 
@@ -10,6 +10,10 @@ This is a future-facing checklist, not a release or a claim of store approval. A
 4. Capture genuine screenshots from that tested build. Save unchanged originals in `screenshots/original/`, store exports in `screenshots/store/`, and record device/API/version and any resizing. Never use the concept PNGs as evidence of actual behavior.
 5. Re-read `docs/privacy-policy.md` against the final build and all bundled libraries. Arrange a stable, public HTTPS URL under a domain/account controlled by the release owner. No such URL or privacy contact is currently configured. Do not submit to Google Play until the final policy is public and linked in-app and in Play Console.
 6. Confirm the package ID is available in the intended store, choose the release signing key and backup procedure, review current target-API/store policies, and have the release owner approve the exact binary and listing. No package-ID global-uniqueness or store acceptance claim is made here.
+
+## GitHub debug APK download (opt-in)
+
+The Android build workflow can publish a clearly labeled **debug/test pre-release** when manually dispatched with `publish_debug=true`. This is for convenient public download, not a production release. It creates a `debug-<commit>` prerelease containing the debug-signed APK and checksum; ordinary pushes do not publish a release. Do not describe this APK as a Play/F-Droid release or production-signed binary.
 
 ## GitHub source release (manual future procedure)
 
