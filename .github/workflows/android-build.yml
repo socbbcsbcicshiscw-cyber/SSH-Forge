@@ -182,7 +182,7 @@ jobs:
   publish-debug-release:
     name: Publish public debug APK pre-release
     needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_debug
+    if: (github.event_name == 'workflow_dispatch' && inputs.publish_debug) || (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[publish-debug-apk]'))
     runs-on: ubuntu-24.04
     permissions:
       contents: write

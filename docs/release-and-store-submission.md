@@ -13,7 +13,7 @@ This is a future-facing checklist, not a claim of store approval. At the time of
 
 ## GitHub debug APK download (opt-in)
 
-The Android build workflow can publish a clearly labeled **debug/test pre-release** when manually dispatched with `publish_debug=true`. This is for convenient public download, not a production release. It creates a `debug-<commit>` prerelease containing the debug-signed APK and checksum; ordinary pushes do not publish a release. Do not describe this APK as a Play/F-Droid release or production-signed binary.
+The Android build workflow can publish a clearly labeled **debug/test pre-release** when manually dispatched with `publish_debug=true`, or on an explicitly marked push whose commit message starts with `[publish-debug-apk]`. This is for convenient public download, not a production release. It creates a `debug-<commit>` prerelease containing the debug-signed APK and checksum; ordinary pushes do not publish a release. Do not describe this APK as a Play/F-Droid release or production-signed binary.
 
 ## GitHub source release (manual future procedure)
 
