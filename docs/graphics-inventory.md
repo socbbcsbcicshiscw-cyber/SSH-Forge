@@ -4,9 +4,10 @@ All media below is in the repository; file paths are relative to its root. Gener
 
 | Asset | File | Dimensions / format | Intended use and status |
 |---|---|---|---|
-| Master app icon | `graphics/icon/ssh-forge-icon.svg` | SVG source | Editable vector source for the SSH-Forge `>_` / SSH motif. |
-| Large icon raster | `graphics/icon/ssh-forge-icon-1024.png` | 1024×1024, PNG | High-resolution square master. |
-| Store / Fastlane icon | `graphics/icon/ssh-forge-icon-512.png` | 512×512, PNG | Google Play listing icon-sized raster; also copied to `fastlane/metadata/android/en-US/images/icon.png`. |
+| Master app icon | `graphics/icon/ssh-forge-icon.svg` | SVG source | Editable minimalist `>_` terminal-prompt artwork; this mark is also used in Android's adaptive launcher vector. |
+| Selected generated icon artwork | `graphics/icon/ssh-forge-icon-selected.png` | 1600×1600, RGB PNG | The selected generated square source artwork for the `>_` icon; RGB raster. |
+| Large icon raster | `graphics/icon/ssh-forge-icon-1024.png` | 1024×1024, RGB PNG | High-resolution square export from the selected artwork. |
+| Store / Fastlane icon | `graphics/icon/ssh-forge-icon-512.png` | 512×512, RGB PNG | Google Play listing icon-sized export; also copied to `fastlane/metadata/android/en-US/images/icon.png`. |
 | Google Play feature graphic | `graphics/feature/feature-graphic-1024x500.png` | 1024×500, RGB PNG, no alpha | Store listing feature graphic. It is an original promotional graphic, not a screenshot. |
 | Feature graphic source | `graphics/feature/feature-graphic-1024x500.svg` | SVG source | Editable vector source for the banner. |
 | Concept 01 | `screenshots/concepts/01-connect-concept.png` | 1080×1920, RGB PNG | Illustrative connection form; not captured from an app/device. |

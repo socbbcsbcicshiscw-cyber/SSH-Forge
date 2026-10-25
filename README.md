@@ -12,7 +12,7 @@ SSH-Forge is an early-stage Android **SSH client** for connecting to SSH servers
 - Execution of one user-entered remote command, with stdout, stderr, exit status, bounded output, and an explicit Copy output action.
 - Connection status, an explicit retry action after failure, disconnect, connection/command timeouts, and readable error messages.
 - A bundled third-party license viewer and an in-app privacy/data notice.
-- A square master icon and Android adaptive/round launcher icon resources.
+- A minimalist `>_` app icon, with matching Android adaptive/round launcher icon resources.
 
 Interactive terminal sessions, SSH-key authentication, saved connection profiles, and SFTP are **not implemented**.
 
