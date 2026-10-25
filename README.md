@@ -9,9 +9,10 @@ SSH-Forge is an early-stage Android **SSH client** for connecting to SSH servers
 - Connection form for a server host/IP, port, username, and password.
 - Password-based SSH connection using the maintained `com.github.mwiede:jsch` library.
 - An explicit SHA-256 host-key fingerprint confirmation before SSH authentication on first contact. Accepted host keys are stored in the app's private data directory; a changed key is rejected.
-- Execution of one user-entered remote command, with stdout, stderr, exit status, and a bounded output display.
-- Connection status, a disconnect action, connection/command timeouts, and basic error messages.
-- A bundled third-party license viewer for the SSH library notices.
+- Execution of one user-entered remote command, with stdout, stderr, exit status, bounded output, and an explicit Copy output action.
+- Connection status, an explicit retry action after failure, disconnect, connection/command timeouts, and readable error messages.
+- A bundled third-party license viewer and an in-app privacy/data notice.
+- A square master icon and Android adaptive/round launcher icon resources.
 
 Interactive terminal sessions, SSH-key authentication, saved connection profiles, and SFTP are **not implemented**.
 
@@ -54,7 +55,7 @@ The SSH implementation is `com.github.mwiede:jsch:2.28.8`. Its JSch, JZlib, and 
 
 ## F-Droid readiness
 
-SSH-Forge has not been submitted to or accepted by F-Droid, and no release APK has been published. English upstream metadata (title, descriptions, version-code changelog, and a project icon) is present under `fastlane/metadata/android/en-US/`. Store screenshots/feature graphics are not present, so the app does not currently meet F-Droid's Latest-tab graphics criteria.
+SSH-Forge has not been submitted to or accepted by F-Droid, and no release APK has been published. English upstream metadata (title, descriptions, version-code changelog, and a project icon) is present under `fastlane/metadata/android/en-US/`. The feature graphic is at `graphics/feature/feature-graphic-1024x500.png`. No genuine device/emulator screenshots are available: the labeled concepts in `screenshots/concepts/` are not screenshots and must not be submitted as such. Check current F-Droid graphics requirements; authentic captures are still outstanding.
 
 There is no release tag yet. F-Droid's submission guide expects a tag for each official upstream release, and the current repository was created on 2026-10-24—less than three months ago as of 2026-10-25. The main-repository inclusion policy asks for at least three months of active development unless an exception applies. A final build recipe belongs in the separate `fdroiddata` repository; it was not added here or submitted because no tagged release exists. The CI comparison is only two clean builds on the same GitHub runner; an isolated F-Droid build, toolchain/dependency review, screenshot capture, and maintainers' review remain outstanding.
 

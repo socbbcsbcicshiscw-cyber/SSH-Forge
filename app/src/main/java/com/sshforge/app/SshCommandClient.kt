@@ -10,6 +10,7 @@ import com.jcraft.jsch.Session
 import com.jcraft.jsch.UserInfo
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.util.concurrent.CancellationException
@@ -362,9 +363,16 @@ internal class SshCommandClient(
             if (timedOut.get()) {
                 throw SshCommandTimeoutException(commandTimeoutMessage(), exception)
             }
-            val socketTimedOut = generateSequence<Throwable>(exception) { it.cause }
-                .any { it is SocketTimeoutException }
-            if (socketTimedOut) throw SshCommandTimeoutException(commandTimeoutMessage(), exception)
+            val causes = generateSequence<Throwable>(exception) { it.cause }.toList()
+            if (causes.any { it is SocketTimeoutException }) {
+                throw SshCommandTimeoutException(commandTimeoutMessage(), exception)
+            }
+            if (causes.any { it is IOException } || !currentSession.isConnected) {
+                synchronized(stateLock) {
+                    if (session === currentSession) session = null
+                }
+                currentSession.disconnect()
+            }
             throw exception
         } finally {
             timeoutTask?.cancel(true)

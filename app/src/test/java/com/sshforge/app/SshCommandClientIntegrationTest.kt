@@ -277,6 +277,28 @@ class SshCommandClientIntegrationTest {
     }
 
     @Test
+    fun serverNetworkLossFailsInFlightCommandAndClearsTheSession() {
+        val started = CountDownLatch(1)
+        val server = startServer("network-loss.key", AtomicInteger(), commandStarted = started)
+        val client = newClient(SshTimeouts(commandTimeoutMs = 10_000))
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            client.connect(config(server), TEST_PASSWORD.toByteArray(), HostKeyApproval { _, _, _ -> true })
+            val future = executor.submit<SshCommandResult> { client.execute("sleep") }
+            assertTrue("Server command should start before simulating network loss.", started.await(3, TimeUnit.SECONDS))
+            server.stop()
+
+            val failure = runCatching { future.get(3, TimeUnit.SECONDS) }.exceptionOrNull()
+            assertNotNull("A dropped SSH transport must fail the in-flight command.", failure)
+            assertFalse("A broken transport must not remain published as connected.", client.isConnected)
+        } finally {
+            executor.shutdownNow()
+            client.disconnect()
+            runCatching { server.stop() }
+        }
+    }
+
+    @Test
     fun commandTimeoutAndUserDisconnectCloseTheActiveChannel() {
         val started = CountDownLatch(2)
         val server = startServer("command-cancel.key", AtomicInteger(), commandStarted = started)

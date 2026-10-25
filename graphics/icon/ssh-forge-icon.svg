@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">SSH-Forge app icon</title>
+  <desc id="desc">A mint terminal prompt linked to a remote server on a dark navy square.</desc>
+  <rect width="1024" height="1024" fill="#10161E"/>
+  <circle cx="512" cy="512" r="386" fill="#0B1016" stroke="#26323D" stroke-width="12"/>
+  <g fill="none" stroke="#58D6A2" stroke-linecap="round" stroke-linejoin="round" stroke-width="58">
+    <path d="M255 354 435 512 255 670"/>
+    <path d="M480 670h180"/>
+  </g>
+  <g fill="none" stroke="#8EDBFF" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M660 670v-60c0-20 16-36 36-36h34v-20" stroke-width="24"/>
+    <circle cx="660" cy="670" r="12" fill="#8EDBFF" stroke="none"/>
+    <rect x="730" y="357" width="165" height="197" rx="24" stroke-width="24"/>
+    <path d="M751 424h123M751 489h123" stroke-width="20"/>
+    <circle cx="771" cy="390" r="8" fill="#58D6A2" stroke="none"/>
+    <circle cx="771" cy="457" r="8" fill="#58D6A2" stroke="none"/>
+  </g>
+</svg>

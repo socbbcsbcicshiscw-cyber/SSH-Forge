@@ -3,8 +3,9 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_sshforge"
+        android:icon="@mipmap/ic_launcher"
         android:label="SSH-Forge"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity

@@ -5,7 +5,8 @@ Features:
 • Saves an approved host key in the app's private data and rejects a changed key.
 • Displays standard output, standard error, and the remote command's exit status.
 • Limits displayed command output and provides connection and command timeouts.
-• Provides a disconnect action.
+• Lets you copy output only when you tap Copy output.
+• Provides disconnect and retry actions, plus an in-app privacy/data notice.
 
 For meaningful protection against a man-in-the-middle, compare the displayed fingerprint with one obtained through a separate trusted channel. Trust-on-first-use alone cannot establish that the first connection was not intercepted.
 

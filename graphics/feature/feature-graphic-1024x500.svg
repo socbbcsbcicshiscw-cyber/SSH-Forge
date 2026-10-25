@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500" role="img" aria-labelledby="title desc">
+  <title id="title">SSH-Forge feature graphic</title>
+  <desc id="desc">A focused Android SSH client for one remote command at a time, with host-key review and clear output limits.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1016"/>
+      <stop offset="1" stop-color="#15283A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <g fill="none" stroke="#26323D" stroke-width="2" opacity="0.75">
+    <path d="M0 472H1024"/><path d="M0 82H1024"/>
+    <circle cx="179" cy="250" r="170"/><circle cx="179" cy="250" r="146"/>
+  </g>
+  <g transform="translate(50 122)">
+    <circle cx="128" cy="128" r="126" fill="#0B1016" stroke="#26323D" stroke-width="5"/>
+    <g fill="none" stroke="#58D6A2" stroke-width="19" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M52 76 96 128 52 180"/><path d="M107 180h43"/>
+    </g>
+    <g fill="none" stroke="#8EDBFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M150 180v-15c0-8 6-14 14-14h13v-8"/>
+      <rect x="177" y="68" width="48" height="57" rx="8"/>
+      <path d="M184 86h34M184 105h34"/>
+    </g>
+    <g fill="#58D6A2"><circle cx="189" cy="78" r="3"/><circle cx="189" cy="97" r="3"/></g>
+  </g>
+  <g font-family="DejaVu Sans, sans-serif">
+    <text x="366" y="118" fill="#58D6A2" font-size="24" font-weight="700" letter-spacing="5">SSH-FORGE</text>
+    <text x="362" y="207" fill="#E5EDF2" font-size="55" font-weight="700">One remote</text>
+    <text x="362" y="270" fill="#58D6A2" font-size="55" font-weight="700">command at a time.</text>
+    <text x="366" y="338" fill="#C3D0D9" font-size="23">Password SSH · SHA-256 host-key prompt</text>
+    <text x="366" y="378" fill="#C3D0D9" font-size="23">Bounded output · Disconnect when needed</text>
+    <text x="366" y="438" fill="#8A9AA8" font-size="17">A focused command client — not an interactive shell.</text>
+  </g>
+</svg>

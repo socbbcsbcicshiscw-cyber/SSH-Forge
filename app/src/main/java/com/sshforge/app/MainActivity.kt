@@ -2,6 +2,8 @@ package com.sshforge.app
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -16,6 +18,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import java.net.SocketTimeoutException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -34,10 +37,12 @@ class MainActivity : Activity() {
     private lateinit var connectButton: Button
     private lateinit var disconnectButton: Button
     private lateinit var runButton: Button
+    private lateinit var copyOutputButton: Button
     private lateinit var statusText: TextView
     private lateinit var outputText: TextView
     private val mainHandler = Handler(Looper.getMainLooper())
     private var busy = false
+    private var canRetryConnection = false
     private var operationGeneration = 0
     private var pendingHostKeyDialog: AlertDialog? = null
     private var shouldMonitorConnection = false
@@ -46,6 +51,7 @@ class MainActivity : Activity() {
             if (!shouldMonitorConnection) return
             if (!sshClient.isConnected) {
                 shouldMonitorConnection = false
+                canRetryConnection = true
                 statusText.text = "●  Connection lost"
                 statusText.setTextColor(COLOR_WARNING)
                 outputText.text = "The SSH connection was lost. Reconnect before running another command."
@@ -109,6 +115,12 @@ class MainActivity : Activity() {
         passwordInput = addField(page, "Password", "Not saved", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD).apply {
             isSaveEnabled = false
         }
+        page.addView(TextView(this).apply {
+            text = "Your credentials are sent to the SSH server you choose. The password is not saved by this app."
+            textSize = 11f
+            setTextColor(COLOR_MUTED)
+            setPadding(dp(2), dp(4), dp(2), dp(8))
+        }, matchWrap())
 
         statusText = TextView(this).apply {
             text = "●  Disconnected"
@@ -163,6 +175,12 @@ class MainActivity : Activity() {
             minHeight = dp(120)
         }
         page.addView(outputText, matchWrap())
+        copyOutputButton = makeButton("Copy output", COLOR_BUTTON) { copyOutput() }.apply {
+            isEnabled = false
+        }
+        page.addView(copyOutputButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)).apply {
+            topMargin = dp(8)
+        })
         page.addView(TextView(this).apply {
             text = "First-time host keys require your approval. Verify the displayed SHA-256 fingerprint with the server administrator."
             textSize = 11f
@@ -176,6 +194,14 @@ class MainActivity : Activity() {
             setPadding(dp(2), dp(18), dp(2), 0)
             paint.isUnderlineText = true
             setOnClickListener { showThirdPartyLicenses() }
+        }, matchWrap())
+        page.addView(TextView(this).apply {
+            text = "Privacy and data"
+            textSize = 12f
+            setTextColor(COLOR_ACCENT)
+            setPadding(dp(2), dp(12), dp(2), dp(8))
+            paint.isUnderlineText = true
+            setOnClickListener { showPrivacyNotice() }
         }, matchWrap())
 
         return ScrollView(this).apply {
@@ -245,10 +271,10 @@ class MainActivity : Activity() {
     }
 
     private fun connect() {
-        val host = hostInput.text.toString().trim()
-        val portText = portInput.text.toString().trim()
+        val host = hostInput.text.toString()
+        val portText = portInput.text.toString()
         val port = portText.toIntOrNull() ?: -1
-        val config = SshConnectionConfig(host, port, usernameInput.text.toString().trim())
+        val config = SshConnectionConfig(host, port, usernameInput.text.toString())
         val validationError = config.validationError()
         if (validationError != null) {
             showMessage("Check connection details", validationError)
@@ -263,6 +289,7 @@ class MainActivity : Activity() {
 
         val operation = ++operationGeneration
         busy = true
+        canRetryConnection = true
         statusText.text = "◌  Connecting — verify the server fingerprint if prompted…"
         statusText.setTextColor(COLOR_WARNING)
         updateConnectionControls()
@@ -274,6 +301,7 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     if (operation != operationGeneration) return@runOnUiThread
                     busy = false
+                    canRetryConnection = false
                     shouldMonitorConnection = true
                     mainHandler.removeCallbacks(connectionMonitor)
                     mainHandler.postDelayed(connectionMonitor, CONNECTION_MONITOR_INTERVAL_MS)
@@ -286,6 +314,7 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     if (operation != operationGeneration) return@runOnUiThread
                     busy = false
+                    canRetryConnection = true
                     shouldMonitorConnection = false
                     mainHandler.removeCallbacks(connectionMonitor)
                     statusText.text = "●  Disconnected"
@@ -340,8 +369,10 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     if (operation != operationGeneration) return@runOnUiThread
                     busy = false
-                    statusText.text = if (sshClient.isConnected) "●  Connected" else "●  Disconnected"
-                    statusText.setTextColor(if (sshClient.isConnected) COLOR_ACCENT else COLOR_MUTED)
+                    val connected = sshClient.isConnected
+                    if (!connected) canRetryConnection = true
+                    statusText.text = if (connected) "●  Connected" else "●  Disconnected"
+                    statusText.setTextColor(if (connected) COLOR_ACCENT else COLOR_MUTED)
                     outputText.text = describeError(exception)
                     updateConnectionControls()
                 }
@@ -357,6 +388,7 @@ class MainActivity : Activity() {
         pendingHostKeyDialog = null
         sshClient.disconnect()
         busy = false
+        canRetryConnection = true
         statusText.text = "●  Disconnected"
         statusText.setTextColor(COLOR_MUTED)
         outputText.text = "Disconnected from SSH. A command already sent may continue on the remote server depending on server behavior."
@@ -413,6 +445,11 @@ class MainActivity : Activity() {
 
     private fun updateConnectionControls() {
         val connected = sshClient.isConnected
+        connectButton.text = when {
+            busy && !connected -> "Connecting…"
+            canRetryConnection && !connected -> "Retry connection"
+            else -> "Connect"
+        }
         connectButton.isEnabled = !busy && !connected
         disconnectButton.isEnabled = connected || busy
         connectButton.alpha = if (connectButton.isEnabled) 1f else 0.5f
@@ -424,6 +461,8 @@ class MainActivity : Activity() {
         commandInput.isEnabled = connected && !busy
         runButton.isEnabled = connected && !busy
         runButton.alpha = if (runButton.isEnabled) 1f else 0.5f
+        copyOutputButton.isEnabled = outputText.text.isNotBlank()
+        copyOutputButton.alpha = if (copyOutputButton.isEnabled) 1f else 0.5f
     }
 
     private fun describeError(exception: Exception): String {
@@ -440,6 +479,43 @@ class MainActivity : Activity() {
             message.isNotBlank() -> message
             else -> "SSH operation failed (${exception.javaClass.simpleName})."
         }
+    }
+
+    private fun showPrivacyNotice() {
+        val notice = TextView(this).apply {
+            text = """
+                SSH-Forge connects only to the host and port you enter. The selected SSH server receives the username, password, and commands needed for the connection and remote execution.
+
+                For a new host key, the app shows its SHA-256 fingerprint and waits for your approval before authentication. Compare it with a value from a separate trusted channel. Changed keys are rejected.
+
+                SSH-Forge does not intentionally save passwords, commands, or output. The password field is cleared when connecting and the client clears its supplied byte array, but Android does not guarantee immediate erasure of every temporary memory copy. Approved public host keys are stored in the app's private data. Output is copied to the Android clipboard only when you tap Copy output.
+
+                The current app has no ads, analytics, crash-reporting, or web API dependencies. Its only Android permission is Internet, used for the SSH connection. The server administrator may retain connection, command, or output data under their own policies.
+
+                A more detailed draft privacy notice and current project status are available in the source repository. Check its current status before relying on it as a published privacy policy.
+            """.trimIndent()
+            textSize = 14f
+            setTextColor(COLOR_TEXT)
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setTextIsSelectable(true)
+        }
+        val scroll = ScrollView(this).apply {
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            addView(notice, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Privacy and data")
+            .setView(scroll)
+            .setPositiveButton("Close", null)
+            .show()
+    }
+
+    private fun copyOutput() {
+        val content = outputText.text.toString()
+        if (content.isBlank()) return
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("SSH-Forge command output", content))
+        Toast.makeText(this, "Output copied", Toast.LENGTH_SHORT).show()
     }
 
     private fun showThirdPartyLicenses() {
