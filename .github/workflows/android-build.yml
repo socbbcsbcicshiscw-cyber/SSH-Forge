@@ -163,3 +163,12 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload concept screenshots artifact
+        if: success()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ssh-forge-screenshots
+          path: screenshots/concepts/*
+          if-no-files-found: error
+          retention-days: 14
