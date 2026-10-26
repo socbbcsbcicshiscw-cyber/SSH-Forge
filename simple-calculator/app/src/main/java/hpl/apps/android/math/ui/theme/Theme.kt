@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import hpl.apps.android.math.data.UserPreferencesRepository
 
 private val DarkColorScheme = darkColorScheme(
     primary = primaryDark,
@@ -88,11 +89,17 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun CalculatorTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: String = UserPreferencesRepository.THEME_SYSTEM,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val darkTheme = when (themeMode) {
+        UserPreferencesRepository.THEME_LIGHT -> false
+        UserPreferencesRepository.THEME_DARK -> true
+        else -> isSystemInDarkTheme()
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current

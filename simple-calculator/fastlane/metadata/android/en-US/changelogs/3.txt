@@ -1,0 +1,6 @@
+* History is now saved between sessions
+* The DEG/RAD angle unit is remembered
+* The converter remembers your last units
+* New theme picker (system / light / dark)
+* Wallpaper colours can be turned off
+* Clear history from Settings

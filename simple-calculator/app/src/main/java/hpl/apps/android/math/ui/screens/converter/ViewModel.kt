@@ -18,6 +18,7 @@ import hpl.apps.android.math.ui.components.button.VectorButtonClass
 import hpl.apps.android.math.utils.Dimension
 import hpl.apps.android.math.utils.MeasurementUnit
 import hpl.apps.android.math.utils.baseUnit2Index
+import hpl.apps.android.math.utils.key
 import hpl.apps.android.math.utils.baseUnitIndex
 import hpl.apps.android.math.utils.oops
 import kotlinx.coroutines.CoroutineDispatcher
@@ -76,6 +77,42 @@ class ConverterViewModel(
 
     val state = initializeState()
 
+    init {
+        // Restore the dimension and the two units that were used last time.
+        viewModelScope.launch {
+            val dimensionName = userPreferencesRepository.converterDimension.first()
+            val unit1Name = userPreferencesRepository.converterUnit1.first()
+            val unit2Name = userPreferencesRepository.converterUnit2.first()
+            if (dimensionName == null) return@launch
+
+            val dimension = units.keys.firstOrNull { it.key == dimensionName } ?: return@launch
+            val unitsForDimension = units[dimension] ?: return@launch
+            val unit1 = unit1Name?.let { unitsForDimension[it] }
+                ?: initializeUnit1(dimension, unitsForDimension)
+            val unit2 = unit2Name?.let { unitsForDimension[it] }
+                ?: initializeUnit2(dimension, unitsForDimension)
+
+            selectedDimension = dimension
+            state.value = ConverterDisplayState(
+                state.value.expression,
+                state.value.cursorPosition,
+                false,
+                unit1,
+                unit2,
+                state.value.result
+            )
+        }
+    }
+
+    private fun persistSelection(){
+        val dimensionName = selectedDimension.key ?: return
+        val unit1Name = state.value.selectedUnit1.key ?: return
+        val unit2Name = state.value.selectedUnit2.key ?: return
+        viewModelScope.launch(defaultDispatcher){
+            userPreferencesRepository.saveConverterSelection(dimensionName, unit1Name, unit2Name)
+        }
+    }
+
     fun setUnit1(unit: MeasurementUnit, context: Context){
         setLoadingState(
             expression = state.value.expression,
@@ -85,6 +122,7 @@ class ConverterViewModel(
             selectedUnit2 = state.value.selectedUnit2,
             context = context
         )
+        persistSelection()
         startNewJob {
             state.value = state.value.copy(
                 result = convert(state.value.expression, state.value.selectedUnit1, state.value.selectedUnit2, context)?: ""
@@ -122,6 +160,7 @@ class ConverterViewModel(
     fun reset(dimension: Dimension){
         selectedDimension = dimension
         state.value = initializeState().value
+        persistSelection()
     }
 
     private val converterFunction = GetData.expressionHandler()::convert
@@ -156,6 +195,7 @@ class ConverterViewModel(
             selectedUnit2 = selectedUnit2,
             context = context
         )
+        persistSelection()
         startNewJob {
             state.value = state.value.copy(
                 result = convert(state.value.expression, state.value.selectedUnit1, state.value.selectedUnit2, context)?: ""

@@ -20,6 +20,13 @@ interface Dimension {
 const val baseUnitIndex = "BASE"
 const val baseUnit2Index = "BASE2"
 
+/*
+Both dimensions and units are enums, so their enum name is a stable key that can be
+persisted and looked up again on the next launch.
+*/
+val MeasurementUnit.key: String? get() = (this as? Enum<*>)?.name
+val Dimension.key: String? get() = (this as? Enum<*>)?.name
+
 
 private const val TAG = "AppLog"
 fun oops(message: String?){
