@@ -222,4 +222,21 @@
     <string name="TB">Terabyte</string>
     <string name="TiB">Tebibyte</string>
 
+    <!-- Settings -->
+    <string name="appearance">Appearance</string>
+    <string name="calculation">Calculation</string>
+    <string name="theme">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="dynamic_color">Match system colours</string>
+    <string name="dynamic_color_description">Use the palette derived from your wallpaper (Android 12+)</string>
+    <string name="dynamic_color_unsupported">Requires Android 12 or newer</string>
+    <string name="precision_current">%1$d decimal places</string>
+    <string name="clear_history">Clear history</string>
+    <string name="history_entries">%1$d saved calculations</string>
+    <string name="history_empty">No saved calculations</string>
+    <string name="history_cleared">History cleared</string>
+    <string name="cancel">Cancel</string>
+
 </resources>

@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,6 +84,36 @@ class CalculatorViewModel(
         )
         history.clear()
         historySize.intValue = history.size
+        viewModelScope.launch(defaultDispatcher){ userPreferencesRepository.clearHistory() }
+    }
+
+    init {
+        // Restore the calculation history saved by previous sessions and keep it in sync
+        // with the repository (clearing it in Settings clears it everywhere).
+        viewModelScope.launch {
+            userPreferencesRepository.history.collect { entries ->
+                if (entries != history.map { it.expression }) {
+                    history.clear()
+                    entries.forEachIndexed { index, expression ->
+                        history.add(HistoryItem(index + 1, expression))
+                    }
+                    historySize.intValue = history.size
+                }
+            }
+        }
+        viewModelScope.launch {
+            degreeMode.value = userPreferencesRepository.degreeMode.first()
+        }
+    }
+
+    private fun persistHistory(){
+        val entries = history.map { it.expression }
+        viewModelScope.launch(defaultDispatcher){ userPreferencesRepository.saveHistory(entries) }
+    }
+
+    private fun persistDegreeMode(){
+        val value = degreeMode.value
+        viewModelScope.launch(defaultDispatcher){ userPreferencesRepository.saveDegreeMode(value) }
     }
 
     private val percent = (TextButtonClass.PERCENT.displayText?: TextButtonClass.PERCENT.text)[0]
@@ -224,6 +255,7 @@ class CalculatorViewModel(
                         if(result != null){
                             history.add(HistoryItem(historySize.intValue+1, stateDuringClick.expression))
                             historySize.intValue = history.size
+                            persistHistory()
                             inputState.value = InputState(
                                 result,
                                 result.length,
@@ -310,6 +342,7 @@ class CalculatorViewModel(
             }
             TextButtonClass.DEG ->{
                 degreeMode.value = !degreeMode.value
+                persistDegreeMode()
                 if(inputState.value.expression.isNotEmpty()) {
                     setLoadingState(
                         expression = inputState.value.expression,
@@ -326,6 +359,7 @@ class CalculatorViewModel(
             }
             TextButtonClass.RAD ->{
                 degreeMode.value = !degreeMode.value
+                persistDegreeMode()
                 if(inputState.value.expression.isNotEmpty()) {
                     setLoadingState(
                         expression = inputState.value.expression,

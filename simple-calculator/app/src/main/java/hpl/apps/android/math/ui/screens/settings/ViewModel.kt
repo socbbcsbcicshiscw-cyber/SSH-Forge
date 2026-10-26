@@ -31,9 +31,46 @@ class SettingsViewModel(
                 userPreferencesRepository.precision.first()
             }
         )
+
+    val themeMode: StateFlow<String> = userPreferencesRepository.themeMode.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = runBlocking { userPreferencesRepository.themeMode.first() }
+    )
+
+    val dynamicColor: StateFlow<Boolean> = userPreferencesRepository.dynamicColor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = runBlocking { userPreferencesRepository.dynamicColor.first() }
+    )
+
+    val historySize: StateFlow<Int> = userPreferencesRepository.history.map { it.size }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0
+    )
+
     fun setPrecision(precision: Int) {
         viewModelScope.launch {
             withContext(defaultDispatcher){ userPreferencesRepository.savePrecisionPreference(precision) }
+        }
+    }
+
+    fun setThemeMode(themeMode: String) {
+        viewModelScope.launch {
+            withContext(defaultDispatcher){ userPreferencesRepository.saveThemeMode(themeMode) }
+        }
+    }
+
+    fun setDynamicColor(dynamicColor: Boolean) {
+        viewModelScope.launch {
+            withContext(defaultDispatcher){ userPreferencesRepository.saveDynamicColor(dynamicColor) }
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            withContext(defaultDispatcher){ userPreferencesRepository.clearHistory() }
         }
     }
 
