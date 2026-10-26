@@ -1,0 +1,60 @@
+name: Calculator APK
+
+on:
+  push:
+    paths:
+      - "simple-calculator/**"
+      - ".github/workflows/calculator-apk.yml"
+  pull_request:
+    paths:
+      - "simple-calculator/**"
+      - ".github/workflows/calculator-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Simple Calculator APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        run: |
+          set -e
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-37" 2>&1 | tail -5
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT"
+
+      - name: Build debug APK
+        working-directory: simple-calculator
+        env:
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Show outputs
+        run: find simple-calculator/app/build/outputs -name "*.apk" -print -exec ls -l {} \;
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple-calculator-debug-apk
+          path: simple-calculator/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
