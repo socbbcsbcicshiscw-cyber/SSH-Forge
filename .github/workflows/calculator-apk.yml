@@ -72,6 +72,7 @@ jobs:
         id: apk
         env:
           APK_ASSET_NAME: ${{ steps.version.outputs.apk_name }}
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -e
           mkdir -p dist
@@ -101,6 +102,22 @@ jobs:
             cp simple-calculator/app/build/outputs/apk/debug/app-debug.apk "dist/${APK_ASSET_NAME}"
             SOURCE="debug"
           fi
+
+          echo "--- verifying the produced APK ---"
+          BADGING="$("$BUILD_TOOLS/aapt2" dump badging "dist/${APK_ASSET_NAME}" | head -1)"
+          echo "$BADGING"
+          case "$BADGING" in
+            *"package: name='hpl.apps.android.math'"*) ;;
+            *) echo "::error::Unexpected package name"; exit 1 ;;
+          esac
+          case "$BADGING" in
+            *"versionName='${EXPECTED_VERSION}'"*) echo "versionName OK" ;;
+            *) echo "::error::Expected versionName ${EXPECTED_VERSION}"; exit 1 ;;
+          esac
+          "$BUILD_TOOLS/aapt2" dump resources "dist/${APK_ASSET_NAME}" 2>/dev/null \
+            | grep -q "string/clear_history" \
+            && echo "new settings strings present" \
+            || { echo "::error::New settings strings are missing from the APK"; exit 1; }
 
           sha256sum "dist/${APK_ASSET_NAME}" | tee "dist/${APK_ASSET_NAME}.sha256"
           ls -l dist
