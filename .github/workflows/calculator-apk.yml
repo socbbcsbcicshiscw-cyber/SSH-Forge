@@ -80,8 +80,9 @@ jobs:
               -keypass arena-ci-pass -alias ci -keyalg RSA -keysize 4096 -validity 10000 \
               -dname "CN=Simple Calculator CI, O=Local Build, C=UA" > /dev/null 2>&1
             "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" /tmp/aligned.apk
-            "$BUILD_TOOLS/apksigner" sign --ks ci-release.keystore --ks-pass pass:arena-ci-pass \
-              --key-pass pass:arena-ci-pass --out "dist/${APK_ASSET_NAME}" /tmp/aligned.apk
+            "$BUILD_TOOLS/apksigner" sign --v4-signing-enabled false --ks ci-release.keystore \
+              --ks-pass pass:arena-ci-pass --key-pass pass:arena-ci-pass \
+              --out "dist/${APK_ASSET_NAME}" /tmp/aligned.apk
             "$BUILD_TOOLS/apksigner" verify --print-certs "dist/${APK_ASSET_NAME}"
             SOURCE="release (signed)"
           else
@@ -108,18 +109,20 @@ jobs:
         run: |
           gh release delete "$RELEASE_TAG" --yes --cleanup-tag -R "$GITHUB_REPOSITORY" || true
           cat > /tmp/release-notes.md <<'NOTES'
-          Installable APK of **Simple Calculator 1.0.2**, built from the unmodified
-          sources in [`simple-calculator/`](../tree/main/simple-calculator) — a verbatim copy of
-          [`hobby-projects-lab/simple-calculator`](https://github.com/hobby-projects-lab/simple-calculator).
+          Installable APK of **Simple Calculator 1.0.2**, built in GitHub Actions from the unmodified
+          sources in [`simple-calculator/`](https://github.com/socbbcsbcicshiscw-cyber/SSH-Forge/tree/main/simple-calculator) —
+          a verbatim copy of [hobby-projects-lab/simple-calculator](https://github.com/hobby-projects-lab/simple-calculator).
 
           * App ID: `hpl.apps.android.math`
           * Version: 1.0.2 (versionCode 2)
           * Min Android: 7.0 (API 24)
-          * License: GPL-3.0 (see `simple-calculator/LICENSE`)
-          * `.sha256` file next to the APK lets you verify the download
+          * License: GPL-3.0 — original copyright and license kept unchanged
+          * Signing: fresh CI key (not the upstream author's key), so uninstall the upstream
+            build first if you have it installed
 
           Download the `.apk` below and open it on your phone to install
-          (Android will ask you to allow installs from your browser/files app).
+          (Android will ask you to allow installs from your browser or file manager).
+          The `.sha256` file next to the APK lets you verify the download.
           NOTES
           gh release create "$RELEASE_TAG" dist/* \
             -R "$GITHUB_REPOSITORY" \
